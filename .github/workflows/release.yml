@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          #- target: x86_64-pc-windows-gnu
+          #  archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz tar.xz tar.zst
+          #- target: x86_64-apple-darwin
+          #  archive: zip
+    steps:
+      - uses: actions/checkout@master
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ./target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --all-features
+      - run: cargo build -r --all-features
+      - uses: actions/upload-artifact@v3
+        with:
+          name: solaredge2mqtt
+          path: target/release/solaredge2mqtt
