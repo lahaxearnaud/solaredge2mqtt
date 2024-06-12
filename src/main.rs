@@ -125,14 +125,19 @@ async fn main() {
        let mut interval = tokio::time::interval(Duration::from_secs(update_delay));
        loop {
            interval.tick().await;
-           let site_current_power_flow = update_from_solaredge(
+            let site_current_power_flow = update_from_solaredge(
                 site_id.clone(),
                 api_key.clone()
-            ).await.unwrap();
+            ).await;
 
-           let _ = publish_to_mqtt(
+            if site_current_power_flow.is_err() {
+                log::error!("Failed to call solaredge");
+                continue;
+            }
+
+            let _ = publish_to_mqtt(
                 &mut client,
-                site_current_power_flow,
+                site_current_power_flow.unwrap(),
                 site_id.clone(),
                 mqtt_homeassistant_state_topic.clone()
             ).await;
@@ -185,12 +190,13 @@ async fn publish_homeassistant_config_to_mqtt(
             manufacturer: "Solaredge".to_string()
         }
     }).to_string();
+
     let _ = client.publish(
         mqtt_homeassistant_discovery_topic.replace("{}", &technical_name),
         QoS::AtLeastOnce,
         false,
         config
-    ).await.unwrap_or_else(|_| { panic!("Error during publish") });
+    ).await.unwrap();
 }
 
 
@@ -214,14 +220,17 @@ async fn publish_to_mqtt(
 }
 
 async fn update_from_solaredge(site_id: String, api_key: String) -> Result<SiteCurrentPowerFlow, &'static str> {
-    let base_url = format!("https://monitoringapi.solaredge.com/site/{}/currentPowerFlow?api_key={}", site_id, api_key);
+    let base_url = format!("https://monitorapi.solaredge.com/site/{}/currentPowerFlow?api_key={}", site_id, api_key);
     let full_url = &base_url[..];
     let result = reqwest::get(full_url).await;
+    if let Err(_) = result {
+        return Err("Fail to fetch data from monitoringapi.solaredge.com {}");
+    }
     let response = result.unwrap();
     return match response.status() {
         reqwest::StatusCode::OK => match response.json::<Root>().await {
             Ok(parsed) => Ok(parsed.site_current_power_flow),
-            Err(_) => Err("Fail to fetch data from monitoringapi.solaredge.com"),
+            Err(_) => Err("monitoringapi.solaredge.com response cannot be decoded"),
         },
         reqwest::StatusCode::UNAUTHORIZED => Err("Api key rejected for this site"),
         _ => Err("Fail to fetch data from monitoringapi.solaredge.com"),
