@@ -30,6 +30,12 @@ const ENV_MQTT_HOMEASSISTANT_STATE_TOPIC: &'static str = "MQTT_HOMEASSISTANT_STA
 
 const PROJECT_NAME: &'static str = "solaredge2mqtt";
 
+const SOLAREDGE_UNIT: &'static str = "kW";
+const SOLAREDGE_MONITORING_API_HOST: &'static str = "monitorapi.solaredge.com";
+
+
+const HOMEASSISTANT_DEVICE_CLASS: &'static str = "power";
+
 
 #[tokio::main]
 async fn main() {
@@ -157,8 +163,8 @@ fn generate_site_technical_name(
     technical_name: String,
 ) -> String {
     return "solaredge2mqtt".to_string()
-        + site_id.clone().as_str()
-        + technical_name.clone().replace("_", "").as_str();
+        + &site_id.clone()
+        + &technical_name.clone().replace("_", "");
 }
 
 fn generate_site_state_topic_name(
@@ -167,7 +173,7 @@ fn generate_site_state_topic_name(
 ) -> String {
     return mqtt_homeassistant_state_topic.replace(
         "{}",
-        (PROJECT_NAME.to_string() + site_id.as_str()).as_str(),
+        &(PROJECT_NAME.to_string() + &site_id),
     );
 }
 
@@ -183,9 +189,9 @@ async fn publish_homeassistant_config_to_mqtt(
         sensor.technical_name.clone(),
     );
     let config = json!(Config {
-        device_class: "power".to_string(),
+        device_class: HOMEASSISTANT_DEVICE_CLASS.to_string(),
         state_topic: generate_site_state_topic_name(mqtt_homeassistant_state_topic, site_id),
-        unit_of_measurement: "kW".to_string(),
+        unit_of_measurement: SOLAREDGE_UNIT.to_string(),
         value_template: ("{{ value_json.".to_string() + &sensor.technical_name + "}}").to_string(),
         unique_id: technical_name_without_dash.clone(),
         device: Device {
@@ -220,25 +226,25 @@ async fn publish_to_mqtt(
         QoS::AtLeastOnce,
         false,
         payload,
-    ).await.unwrap_or_else(|_| { panic!("Error during publish") });
+    ).await.unwrap_or_else(|_| { panic!("Error during publishing") });
 }
 
-async fn update_from_solaredge(site_id: String, api_key: String) -> Result<SiteCurrentPowerFlow, &'static str> 
+async fn update_from_solaredge(site_id: String, api_key: String) -> Result<SiteCurrentPowerFlow, String> 
 {
-    let base_url = format!("https://monitorapi.solaredge.com/site/{}/currentPowerFlow?api_key={}", site_id, api_key);
+    let base_url = format!("https://{}/site/{}/currentPowerFlow?api_key={}", SOLAREDGE_MONITORING_API_HOST, site_id, api_key);
     let full_url = &base_url[..];
     let result = reqwest::get(full_url).await;
     if let Err(_) = result {
-        return Err("Fail to fetch data from monitoringapi.solaredge.com {}");
+        return Err("Fail to fetch data from ".to_string() + SOLAREDGE_MONITORING_API_HOST);
     }
     let response = result.unwrap();
     return match response.status() {
         reqwest::StatusCode::OK => match response.json::<Root>().await {
             Ok(parsed) => Ok(parsed.site_current_power_flow),
-            Err(_) => Err("monitoringapi.solaredge.com response cannot be decoded"),
+            Err(_) => Err(SOLAREDGE_MONITORING_API_HOST.to_string() + " cannot be decoded"),
         },
-        reqwest::StatusCode::UNAUTHORIZED => Err("Api key rejected for this site"),
-        _ => Err("Fail to fetch data from monitoringapi.solaredge.com"),
+        reqwest::StatusCode::UNAUTHORIZED => Err("Api key rejected for this site".to_string()),
+        _ => Err("Fail to fetch data from ".to_string() + SOLAREDGE_MONITORING_API_HOST),
     };
 }
 
