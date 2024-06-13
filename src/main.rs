@@ -230,7 +230,6 @@ async fn publish_to_mqtt(
 async fn update_from_solaredge(site_id: String, api_key: String) -> Result<SiteCurrentPowerFlow, String> 
 {
     let base_url = format!("https://{SOLAREDGE_MONITORING_API_HOST}/site/{site_id}/currentPowerFlow?api_key={api_key}");
-    println!("{}", base_url);
     let full_url = &base_url[..];
     let result = reqwest::get(full_url).await;
     if let Err(_) = result {
