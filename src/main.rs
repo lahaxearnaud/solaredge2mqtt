@@ -16,6 +16,21 @@ use tokio::time::Duration;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use serde_json::json;
 
+const ENV_ERROR_MESSAGE: &'static str = "env var is missing";
+
+const ENV_API_KEY: &'static str = "API_KEY";
+const ENV_SITE_ID: &'static str = "SITE_ID";
+const ENV_MQTT_HOST: &'static str = "MQTT_HOST";
+const ENV_MQTT_PORT: &'static str = "MQTT_PORT";
+const ENV_MQTT_CLIENT_NAME: &'static str = "MQTT_CLIENT_NAME";
+const ENV_MQTT_USERNAME: &'static str = "MQTT_USERNAME";
+const ENV_MQTT_PASSWORD: &'static str = "MQTT_PASSWORD";
+const ENV_MQTT_HOMEASSISTANT_DISCOVERY_TOPIC: &'static str = "MQTT_HOMEASSISTANT_DISCOVERY_TOPIC";
+const ENV_MQTT_HOMEASSISTANT_STATE_TOPIC: &'static str = "MQTT_HOMEASSISTANT_STATE_TOPIC";
+
+const PROJECT_NAME: &'static str = "solaredge2mqtt";
+
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
@@ -26,26 +41,27 @@ async fn main() {
         .to_string()
         .parse::<u64>()
         .unwrap();
-    let api_key = env::var("API_KEY")
-        .unwrap_or_else(|_| { panic!("API_KEY env var is missing") });
-    let site_id = env::var("SITE_ID")
-        .unwrap_or_else(|_| { panic!("SITE_ID env var is missing") });
-    let mqtt_client_name = env::var("MQTT_CLIENT_NAME")
+
+    let api_key = env::var(ENV_API_KEY)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_API_KEY, ENV_ERROR_MESSAGE) });
+    let site_id = env::var(ENV_SITE_ID)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_SITE_ID, ENV_ERROR_MESSAGE) });
+    let mqtt_client_name = env::var(ENV_MQTT_CLIENT_NAME)
         .unwrap_or("solaredge2mqtt".to_string());
-    let mqtt_host = env::var("MQTT_HOST")
-        .unwrap_or_else(|_| { panic!("MQTT_HOST env var is missing") });
-    let mqtt_port = env::var("MQTT_PORT")
-        .unwrap_or_else(|_| { panic!("MQTT_PORT env var is missing") })
+    let mqtt_host = env::var(ENV_MQTT_HOST)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_MQTT_HOST, ENV_ERROR_MESSAGE) });
+    let mqtt_port = env::var(ENV_MQTT_PORT)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_MQTT_PORT, ENV_ERROR_MESSAGE) })
         .parse::<u16>()
         .unwrap();
-    let mqtt_username = env::var("MQTT_USERNAME")
-        .unwrap_or_else(|_| { panic!("MQTT_USERNAME env var is missing") });
-    let mqtt_password = env::var("MQTT_PASSWORD")
-        .unwrap_or_else(|_| { panic!("MQTT_PASSWORD env var is missing") });
-    let mqtt_homeassistant_discovery_topic = env::var("MQTT_HOMEASSISTANT_DISCOVERY_TOPIC")
-        .unwrap_or_else(|_| { panic!("MQTT_HOMEASSISTANT_DISCOVERY_TOPIC env var is missing") });
-    let mqtt_homeassistant_state_topic = env::var("MQTT_HOMEASSISTANT_STATE_TOPIC")
-        .unwrap_or_else(|_| { panic!("MQTT_HOMEASSISTANT_STATE_TOPIC env var is missing") });
+    let mqtt_username = env::var(ENV_MQTT_USERNAME)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_MQTT_USERNAME, ENV_ERROR_MESSAGE) });
+    let mqtt_password = env::var(ENV_MQTT_PASSWORD)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_MQTT_PASSWORD, ENV_ERROR_MESSAGE) });
+    let mqtt_homeassistant_discovery_topic = env::var(ENV_MQTT_HOMEASSISTANT_DISCOVERY_TOPIC)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_MQTT_HOMEASSISTANT_DISCOVERY_TOPIC, ENV_ERROR_MESSAGE) });
+    let mqtt_homeassistant_state_topic = env::var(ENV_MQTT_HOMEASSISTANT_STATE_TOPIC)
+        .unwrap_or_else(|_| { panic!("{} {}", ENV_MQTT_HOMEASSISTANT_STATE_TOPIC, ENV_ERROR_MESSAGE) });
 
     let mut mqttoptions = MqttOptions::new(mqtt_client_name, mqtt_host, mqtt_port);
     mqttoptions.set_credentials(mqtt_username, mqtt_password);
@@ -82,7 +98,7 @@ async fn main() {
             ).await;
 
             if site_current_power_flow.is_err() {
-                log::error!("Failed to call solaredge");
+                log::error!("Failed to call solaredge api");
                 continue;
             }
 
@@ -151,7 +167,7 @@ fn generate_site_state_topic_name(
 ) -> String {
     return mqtt_homeassistant_state_topic.replace(
         "{}",
-        ("solaedge2mqtt".to_string() + site_id.as_str()).as_str(),
+        (PROJECT_NAME.to_string() + site_id.as_str()).as_str(),
     );
 }
 
@@ -176,8 +192,8 @@ async fn publish_homeassistant_config_to_mqtt(
             identifiers: vec![
                 technical_name_without_dash.clone()
             ],
-            name: ("Solaredge2mqtt ".to_string() + &sensor.name).to_string(),
-            manufacturer: "Solaredge".to_string()
+            name: (PROJECT_NAME.to_string() + " " + &sensor.name).to_string(),
+            manufacturer: PROJECT_NAME.to_string()
         }
     }).to_string();
 
