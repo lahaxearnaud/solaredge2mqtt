@@ -188,7 +188,7 @@ async fn publish_homeassistant_config_to_mqtt(
     );
     let config = json!(Config {
         device_class: HOMEASSISTANT_DEVICE_CLASS.to_string(),
-        state_topic: generate_site_state_topic_name(mqtt_homeassistant_state_topic, site_id),
+        state_topic: generate_site_state_topic_name(mqtt_homeassistant_state_topic, site_id.clone()),
         unit_of_measurement: SOLAREDGE_UNIT.to_string(),
         value_template: ("{{ value_json.".to_string() + &sensor.technical_name + "}}").to_string(),
         unique_id: technical_name_without_dash.clone(),
@@ -202,7 +202,10 @@ async fn publish_homeassistant_config_to_mqtt(
     }).to_string();
 
     let _ = client.publish(
-        mqtt_homeassistant_discovery_topic.replace("{}", &sensor.technical_name),
+        mqtt_homeassistant_discovery_topic.replace(
+            "{}",
+            &*generate_site_technical_name(site_id, sensor.technical_name)
+        ),
         QoS::AtLeastOnce,
         false,
         config,
