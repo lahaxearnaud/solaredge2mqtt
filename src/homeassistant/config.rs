@@ -24,3 +24,9 @@ pub struct Device {
     pub name: String,
     pub manufacturer: String,
 }
+
+
+pub struct Sensor {
+    pub technical_name: String,
+    pub name: String,
+}
