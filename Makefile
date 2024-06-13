@@ -18,7 +18,5 @@ build-docker: build ## Build docker image
 publish-docker: build-docker ## Publish docker image
 	docker push lahaxearnaud/solaredge2mqtt
 
-install: diesel-setup db-setup ## Boot all dev tools
-
 lint: ## Lint code
 	cargo clippy --fix
